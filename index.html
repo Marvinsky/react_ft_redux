@@ -255,28 +255,18 @@
                 addItem = (e) => {
                     e.preventDefault()
                 
-                    this.props.store.dispatch(handleAddTodo(
+                    this.props.dispatch(handleAddTodo(
                         this.input.value,
                         () => this.input.value = ''
                     ))
-
-                    /*const name = this.input.value
-                    this.input.value = ''
-
-                    this.props.store.dispatch(addTodoAction({
-                        name,
-                        complete: false,
-                        id: generateId()
-                    }))
-                    */
                 }
 
                 removeItem = (todo) => {
-                    this.props.store.dispatch(handleDeleteTodo(todo))
+                    this.props.dispatch(handleDeleteTodo(todo))
                 }
 
                 toggleItem = (id) => {
-                    this.props.store.dispatch(handleToggleItem(id))
+                    this.props.dispatch(handleToggleItem(id))
                 }
 
                 render() {
@@ -304,14 +294,14 @@
                 addItem = (e) => {
                     e.preventDefault()
 
-                    this.props.store.dispatch(handleAddGoal(
+                    this.props.dispatch(handleAddGoal(
                         this.input.value,
                         () => this.input.value = ''
                     ))
                 }
 
                 removeItem = (goal) => {
-                    this.props.store.dispatch(handleDeleteGoal(goal))
+                    this.props.dispatch(handleDeleteGoal(goal))
                 }
 
                 render() {
@@ -333,33 +323,94 @@
                 }
             }
 
+            const ConnectedTodos = connect((state) => {
+                todos: state.todos
+            })(Todos)
+
+            const ConnectedGoals = connect((state) => {
+                goals: state.goals
+            })(Goals)
+
+
+            function connect(mapStateToProps) {
+                return function(Component) {
+
+                    class Receiver extends React.Component {
+                        componentDidMount() {
+                            const {subscribe} = this.props.store
+                            this.unsubscribe = subscribe(() => {
+                                this.forceUpdate()
+                            })
+                        }
+
+                        componentWillUnmount() {
+                            this.unsubscribe()
+                        }
+                        render() {
+                            const {dispatch, getState} = this.props.store
+                            const state = getState()
+                            //stateNeeded is an object where ecach property is a prop
+                            //of the component. Eg for App it will be {loading: true/false}
+                            const stateNeeded = mapStateToProps(state)
+                            return <Component {...stateNeeded} dispatch={dispatch} />
+                        }
+                    }
+
+
+                    class ConnectedComponent extends React.Component {
+                        render() {
+                            return (
+                                <Context.Consumer>
+                                    {(store) => {
+                                        <Receiver store={store}/>
+                                    }}
+                                </Context.Consumer>
+                            )
+                        }
+                    }
+                    return ConnectedComponent
+                }
+            }
+
             class App extends React.Component {
                 componentDidMount() {
-                    const {store} = this.props
-                    
-                    store.dispatch(handleInitialData())
-
-                    store.subscribe(() => this.forceUpdate())
+                    const {dispatch} = this.props
+                    dispatch(handleInitialData())
                 }
                 render() {
-                    const {store} = this.props
-                    const {todos, goals, loading} = store.getState()
-
-                    if (loading === true) {
+                    if (this.props.loading === true) {
                         return <h3>Loading</h3>
                     }
 
                     return (
                         <div>
-                            <Todos todos={todos} store={this.props.store} />
-                            <Goals goals={goals} store={this.props.store} />    
+                            <ConnectedTodos />
+                            <ConnectedGoals /> 
                         </div>
                     )
                 }
             }
 
+            const ConnectedApp = connect((state) => {
+                loading: state.loading
+            })(App)
+
+            const Context = React.createContext()
+
+            class Provider extends React.Component {
+                render() {
+                    return (
+                        <Context.Provider value={this.props.store}>
+                        {this.props.children}    
+                        </Context.Provider>
+                    )
+                }
+            }
+
             ReactDOM.render(
-                <App store={store} />,
+                <Provider store={store}>
+                    <ConnectedApp />
+                </Provider>,
                 document.getElementById('app')
             )
 
